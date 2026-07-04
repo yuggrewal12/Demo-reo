@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Register Student Profile</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <h1>🎒 Profile Registration</h1>
+        <a href="/" class="nav-btn">🔙 Back to Live Dashboard</a>
+    </div>
+
+    <div class="container layout-center">
+        <div class="card card-form">
+            <h2>Add New Student Profile Vector</h2>
+            <form id="register-form" enctype="multipart/form-data">
+                <label>Enter Full Student Name</label>
+                <input type="text" name="name" placeholder="John Doe" required>
+
+                <label>Upload High-Res Portrait Photo</label>
+                <input type="file" name="image" accept="image/*" required>
+
+                <button type="submit" class="submit-btn">Compile Profile Vector</button>
+            </form>
+            <div id="form-feedback-container" style="margin-top: 15px; display: flex; align-items: center; justify-content: center;">
+                <div id="loading-spinner" class="spinner hidden"></div>
+                <span id="form-feedback"></span>
+            </div>
+        </div>
+    </div>
+
+<script>
+    document.getElementById('register-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Disable the button to prevent double-clicks
+        const submitBtn = document.querySelector('.submit-btn');
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+
+        const formData = new FormData(this);
+        const feedback = document.getElementById('form-feedback');
+        const spinner = document.getElementById('loading-spinner');
+
+        feedback.innerText = "Processing vector calculations...";
+        feedback.className = "msg-info";
+        spinner.classList.remove('hidden'); // Show spinner
+
+        fetch('/register', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+            spinner.classList.add('hidden'); // Hide spinner
+            submitBtn.disabled = false;      // Re-enable button
+            submitBtn.style.opacity = '1';
+
+            feedback.innerText = data.message;
+            feedback.className = data.status === 'success' ? 'msg-success' : 'msg-error';
+            if(data.status === 'success') document.getElementById('register-form').reset();
+        });
+    });
+</script>
+
+</body>
+</html>

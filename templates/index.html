@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Face Attendance Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <h1>📊 AI Automated Attendance Terminal</h1>
+        <div style="display: flex; gap: 12px;">
+            <a href="/admin_list" class="nav-btn" style="background-color: #4b5563;">📋 View Registered Students</a>
+            <a href="/register_page" class="nav-btn">➕ Register Student Profile</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Live Video Terminal Feed -->
+        <div class="card terminal">
+            <h2>🎥 Live Camera Scanner Feed</h2>
+            <video id="webcam" autoplay playsinline width="100%" height="auto"></video>
+            <canvas id="capture-canvas" style="display:none;"></canvas>
+            <div id="status-badge" class="badge ready">Terminal Online</div>
+        </div>
+
+        <!-- Attendance Logs Panel -->
+        <div class="card log-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2>📜 Today's Checked-In Database Logs</h2>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="clearLogs()" class="nav-btn" style="background-color: #ef4444; border: none; cursor: pointer;">🗑️ Clear Logs</button>
+                    <a href="/export_csv" class="nav-btn" style="background-color: #10b981;">📥 Export Excel Sheet</a>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student Name</th>
+                            <th>Check-In Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="log-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('capture-canvas');
+        const statusBadge = document.getElementById('status-badge');
+        const context = canvas.getContext('2d');
+
+        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
+            .then(stream => { video.srcObject = stream; })
+            .catch(err => { console.error(err); });
+        // Add a pause flag at the top of your script
+let isScanningPaused = false;
+
+setInterval(() => {
+            // If the scanner is paused to show a success message, skip this frame
+            if (isScanningPaused) return;
+
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const base64Frame = canvas.toDataURL('image/jpeg');
+
+                fetch('/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64Frame })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        statusBadge.innerText = `Verified: ${data.name}`;
+                        statusBadge.className = "badge success";
+                        statusBadge.style.backgroundColor = "#16a34a";
+                        updateLogsTable();
+
+                        // THROTTLE LOGIC: Pause scanning for 8 seconds
+                        isScanningPaused = true;
+                        setTimeout(() => {
+                            isScanningPaused = false;
+                            statusBadge.innerText = "Terminal Online";
+                            statusBadge.style.backgroundColor = "#57534e"; // Reset to ready color
+                        }, 8000);
+
+                    } else if (data.status === 'already_logged') {
+                        statusBadge.innerText = `${data.name}: Already Logged In Today`;
+                        statusBadge.className = "badge success";
+                        statusBadge.style.backgroundColor = "#2563eb"; 
+                        
+                        isScanningPaused = true;
+                        setTimeout(() => { 
+                            isScanningPaused = false; 
+                            statusBadge.innerText = "Terminal Online";
+                            statusBadge.style.backgroundColor = "#57534e";
+                        }, 5000);
+
+                    } else if (data.status === 'spoof_warning') {
+                        statusBadge.innerText = `SPOOF DETECTED: ${data.name}`;
+                        statusBadge.className = "badge scanning";
+                        statusBadge.style.backgroundColor = "#ef4444"; // Red alert
+                        
+                    } else if (data.status === 'unknown') {
+                        statusBadge.innerText = "Scanning...";
+                        statusBadge.className = "badge scanning";
+                        statusBadge.style.backgroundColor = "#d97706";
+                    }
+                });
+            }
+        }, 4500);
+        function updateLogsTable() {
+            fetch('/logs')
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('log-table-body');
+                    tbody.innerHTML = '';
+                    data.forEach(log => {
+                        tbody.innerHTML += `<tr><td><b>${log.name}</b></td><td>${log.timestamp}</td></tr>`;
+                    });
+                });
+        }
+
+        function clearLogs() {
+            if (confirm("Are you sure you want to permanently delete all attendance logs?")) {
+                fetch('/clear_logs', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.message);
+                    if (data.status === 'success') {
+                        updateLogsTable();
+                    }
+                });
+            }
+        }
+
+        setInterval(updateLogsTable, 5000);
+        window.onload = updateLogsTable;
+    </script>
+</body>
+</html>
