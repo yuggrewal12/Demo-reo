@@ -40,7 +40,7 @@ Plaintext
     ├── register.html      # Secure onboarding portal for new biometric vectors
     └── admin_list.html    # Internal directory to view/delete records (generated in app.py)
 ```
-#🚀 Installation & Setup
+# 🚀 Installation & Setup
 1. Clone the repository:
 ```bash
 git clone https://github.com/your-username/your-repo-name.git
